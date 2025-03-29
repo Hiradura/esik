@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel</title>
+    <style>
+        /* Alap stílusok */
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+
+        #admin-panel-screen {
+            display: none;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+
+        .user-item {
+            background-color: #d9e8ff;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        #admin-auth-message {
+            text-align: center;
+            margin: 20px;
+            padding: 10px;
+            background-color: #ffcccc;
+            color: red;
+            display: none;
+        }
+
+        button {
+            padding: 10px;
+            font-size: 14px;
+            margin-top: 10px;
+            cursor: pointer;
+        }
+
+        .admin-login-buttons {
+            display: flex;
+            justify-content: center;
+            margin-top: 50px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Admin panel -->
+    <div id="admin-panel-screen">
+        <h2>Admin Panel</h2>
+        <div id="admin-users-list">
+            <h3>Regisztrált felhasználók</h3>
+            <!-- Itt jelennek meg a felhasználók -->
+        </div>
+        <div id="admin-comments-list">
+            <h3>Reportált kommentek</h3>
+            <!-- Itt jelennek meg a kommentek -->
+        </div>
+    </div>
+
+    <!-- Admin login/logout gombok -->
+    <div class="admin-login-buttons">
+        <button id="admin-login-toggle">Admin Bejelentkezés</button>
+        <button id="admin-logout-button" style="display:none;">Admin Kijelentkezés</button>
+    </div>
+
+    <!-- Admin jogosultság üzenet -->
+    <div id="admin-auth-message"></div>
+
+    <!-- Firebase SDK és a custom script -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.10.0/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.10.0/firebase-auth.js";
+        import { getDatabase, ref, get, update, remove } from "https://www.gstatic.com/firebasejs/9.10.0/firebase-database.js";
+
+
+        // Firebase konfiguráció
+        const firebaseConfig = {
+            apiKey: "AIzaSyA6p7PMWu6Au85AQXZ0l5aleAWBR2uUBIg",
+            authDomain: "vizsga-55ea5.firebaseapp.com",
+            databaseURL: "https://vizsga-55ea5-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "vizsga-55ea5",
+            storageBucket: "vizsga-55ea5.appspot.com",
+            messagingSenderId: "457886173828",
+            appId: "1:457886173828:web:145dbde8e65d08344a10d1"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const database = getDatabase(app);
+
+        // Admin bejelentkezés
+        function loginAdmin() {
+            signInWithEmailAndPassword(auth, "menocica@gmail.com", "123456")
+                .then((userCredential) => {
+                    console.log("Bejelentkezve: ", userCredential.user);
+                    document.getElementById('admin-login-toggle').style.display = 'none';
+                    document.getElementById('admin-logout-button').style.display = 'inline-block';
+                    document.getElementById('admin-panel-screen').style.display = 'block';
+                    viewReportedComments();
+                    viewRegisteredUsers();
+                })
+                .catch((error) => {
+                    console.error("Bejelentkezési hiba: ", error);
+                    document.getElementById('admin-auth-message').innerText = "Hibás bejelentkezési adatok!";
+                    document.getElementById('admin-auth-message').style.display = 'block';
+                });
+        }
+
+        // Admin kijelentkezés
+        function logoutAdmin() {
+            signOut(auth).then(() => {
+                console.log("Kijelentkezve");
+                document.getElementById('admin-login-toggle').style.display = 'inline-block';
+                document.getElementById('admin-logout-button').style.display = 'none';
+                document.getElementById('admin-panel-screen').style.display = 'none';
+            }).catch((error) => {
+                console.error("Kijelentkezési hiba: ", error);
+            });
+        }
+
+        // Felhasználók megjelenítése
+        function viewRegisteredUsers() {
+    const usersList = document.getElementById('admin-users-list');
+    usersList.innerHTML = '<h3>Regisztrált felhasználók</h3>';
+
+    const usersRef = ref(database, 'users');
+    get(usersRef).then((snapshot) => {
+        if (snapshot.exists()) {
+            let foundUsers = false;
+
+            snapshot.forEach((userSnapshot) => {
+                const userId = userSnapshot.key;
+                const user = userSnapshot.val();
+
+                if (user.email && user.name) {
+                    foundUsers = true;
+
+                    const userElement = document.createElement('div');
+                    userElement.classList.add('user-item');
+                    userElement.innerHTML = `
+                        <div>
+                            <p><strong>Felhasználó neve:</strong> ${user.name}</p>
+                            <p><strong>Email:</strong> ${user.email}</p>
+                            <p><strong>Jelenlegi jog:</strong> ${user.role || 'user'}</p>
+                        </div>
+                        <div>
+                            <button onclick="updateUserRole('${userId}', 'user')">User jog</button>
+                            <button onclick="updateUserRole('${userId}', 'admin')">Admin jog</button>
+                        </div>
+                    `;
+                    usersList.appendChild(userElement);
+                }
+            });
+
+            if (!foundUsers) {
+                usersList.innerHTML += "<p>Nincsenek regisztrált felhasználók.</p>";
+            }
+        } else {
+            usersList.innerHTML += "<p>Nincsenek regisztrált felhasználók.</p>";
+        }
+    }).catch((error) => {
+        console.error("Hiba a felhasználók lekérésekor:", error);
+        usersList.innerHTML = "<p>Hiba történt a felhasználók lekérdezésekor.</p>";
+    });
+}
+        // Felhasználói jog módosítása
+        window.updateUserRole = function(userId, newRole) {
+            const userRef = ref(database, 'users/' + userId);
+            update(userRef, {
+                role: newRole
+            }).then(() => {
+                alert(`A felhasználó jogai ${newRole}-ra változtak!`);
+                viewRegisteredUsers(); // Frissítjük a felhasználók listáját
+            }).catch((error) => {
+                console.error("Hiba a jog módosításakor:", error);
+            });
+        };
+
+        // Kommentek megjelenítése
+        function viewReportedComments() {
+    const commentsList = document.getElementById('admin-comments-list');
+    commentsList.innerHTML = '';
+
+    const commentsRef = ref(database, 'comments');
+    get(commentsRef).then((snapshot) => {
+        if (snapshot.exists()) {
+            let foundReport = false;
+
+            snapshot.forEach((commentSnapshot) => {
+                const commentId = commentSnapshot.key;
+                const commentData = commentSnapshot.val();
+
+                if (commentData.reports) {
+                    foundReport = true;
+                    const reports = commentData.reports;
+
+                    Object.keys(reports).forEach((reportId) => {
+                        const report = reports[reportId];
+
+                        const commentElement = document.createElement('div');
+                        commentElement.classList.add('comment-item');
+                        commentElement.innerHTML = `
+                            <p><strong>Felhasználónév:</strong> ${commentData.name}</p>
+                            <p><strong>Komment:</strong> ${commentData.text}</p>
+                            <p><strong>Jelentés oka:</strong> ${report.reportReason}</p>
+                            <p><strong>Jelentés ideje:</strong> ${new Date(report.timestamp).toLocaleString()}</p>
+                            <button onclick="deleteComment('${commentId}')">Komment törlése</button>
+                        `;
+                        commentsList.appendChild(commentElement);
+                    });
+                }
+            });
+
+            if (!foundReport) {
+                commentsList.innerHTML = "<p>Nincsenek jelentett kommentek.</p>";
+            }
+        } else {
+            commentsList.innerHTML = "<p>Nincsenek kommentek.</p>";
+        }
+    }).catch((error) => {
+        console.error("Hiba a kommentek lekérésekor:", error);
+    });
+}
+    
+
+        // A felhasználó bejelentkezési státuszának figyelése
+        onAuthStateChanged(auth, function (user) {
+            if (user) {
+                console.log("Bejelentkezve: ", user);
+            } else {
+                console.log("Nem vagy bejelentkezve.");
+            }
+        });
+
+        // Gomb események
+        document.getElementById('admin-login-toggle').addEventListener('click', loginAdmin);
+        document.getElementById('admin-logout-button').addEventListener('click', logoutAdmin);
+                // Komment törlése
+                function deleteComment(commentId) {
+    if (confirm("Biztosan törölni szeretnéd ezt a kommentet?")) {
+        const commentRef = ref(database, 'comments/' + commentId);
+        remove(commentRef)
+            .then(() => {
+                alert("Komment sikeresen törölve!");
+                viewReportedComments();
+            })
+            .catch((error) => {
+                console.error("Hiba a komment törlésekor:", error);
+                alert("Nem sikerült törölni a kommentet.");
+            });
+    }
+}
+
+window.deleteComment = deleteComment;
+
+
+        // Globálissá tesszük, hogy az onclick hívni tudja
+        window.deleteComment = deleteComment;
+
+    </script>
+</body>
+</html>
