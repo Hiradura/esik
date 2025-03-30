@@ -14,7 +14,7 @@ const speedIncrement = 0.5;
 function startGame() {
     document.getElementById("start-screen").style.display = "none";
     document.getElementById("game-screen").style.display = "flex";
-    document.getElementById("game-container").style.background = "url('background.jpeg') no-repeat center center/cover";
+    document.getElementById("game-container").style.background = "url(background.jpeg') no-repeat center center/cover";
     document.getElementById("game-over-screen").style.display = "none";
 
     canvas = document.getElementById("gameCanvas");
@@ -67,7 +67,7 @@ function quitGame() {
     document.getElementById("game-screen").style.display = "none";
     document.getElementById("start-screen").style.display = "flex";
     document.getElementById("game-over-screen").style.display = "none";
-    document.getElementById("game-container").style.background = "url('menu-background.jpeg') no-repeat center center/cover";
+    document.getElementById("game-container").style.background = "url(menu-background.jpeg') no-repeat center center/cover";
 
     foods = [];
     score = 0;
@@ -259,7 +259,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (logoutButton) logoutButton.style.display = 'inline-block';
   
         // Bejelentkezett állapot esetén háttér beállítása
-        gameContainer.style.background = "url('background.jpeg') no-repeat center center/cover";
+        gameContainer.style.background = "url('szisza\public\background.jpeg') no-repeat center center/cover";
       } else {
         if (loggedInSection && authSection) {
           loggedInSection.style.display = 'none';
