@@ -14,7 +14,7 @@ const speedIncrement = 0.5;
 function startGame() {
     document.getElementById("start-screen").style.display = "none";
     document.getElementById("game-screen").style.display = "flex";
-    document.getElementById("game-container").style.background = "url(background.jpeg') no-repeat center center/cover";
+    document.getElementById("game-container").style.background = "url('background.jpeg') no-repeat center center/cover";
     document.getElementById("game-over-screen").style.display = "none";
 
     canvas = document.getElementById("gameCanvas");
@@ -67,14 +67,13 @@ function quitGame() {
     document.getElementById("game-screen").style.display = "none";
     document.getElementById("start-screen").style.display = "flex";
     document.getElementById("game-over-screen").style.display = "none";
-    document.getElementById("game-container").style.background = "url(menu-background.jpeg') no-repeat center center/cover";
+    document.getElementById("game-container").style.background = "url('menu-background.jpeg') no-repeat center center/cover";
 
     foods = [];
     score = 0;
     lives = 3;
     gameOver = false;
-}
-document.addEventListener("keydown", (event) => {
+}document.addEventListener("keydown", (event) => {
   if (event.key === "ArrowLeft") cat.moveLeft = true;
   if (event.key === "ArrowRight") cat.moveRight = true;
 });
@@ -143,11 +142,12 @@ function drawScoreAndLives() {
       ctx.drawImage(heartImage, canvas.width - 30 - (i * 30), 10, 25, 25);
   }
 }
-
 function startGameOver() {
   document.getElementById("final-score").textContent = "Your Score: " + score;
   document.getElementById("game-over-screen").style.display = "flex";
+  saveGameRecord(score);
 }
+
 
 function gameLoop() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -181,12 +181,209 @@ function extraFunction() {
   isRegistering = false;
   switchAuthMode();
 }
+document.addEventListener("DOMContentLoaded", function () {
+  document.getElementById('login-button').addEventListener('click', loginOrRegister);
+});
 
-document.addEventListener('DOMContentLoaded', function() {
-  let isRegistering = true; // Kezdeti állapot regisztráció
+function switchAuthMode() {
+  const title = document.getElementById('modal-title');
+  const nameField = document.getElementById('register-name');
+  const button = document.getElementById('login-button');
+  const toggleText = document.getElementById('toggle-text');
 
-  // Az első funkció (extraFunction)
-  function extraFunction() {
+  if (isRegistering) {
+    title.textContent = "Regisztráció";
+    nameField.style.display = "block";
+    button.textContent = "Regisztrálok";
+    toggleText.innerHTML = `Van már fiókod? <a href="#" id="toggle-register">Bejelentkezés</a>`;
+  } else {
+    title.textContent = "Bejelentkezés";
+    nameField.style.display = "none";
+    button.textContent = "Bejelentkezés";
+    toggleText.innerHTML = `Még nincs fiókod? <a href="#" id="toggle-register">Regisztráció</a>`;
+  }
+
+  // újragomb újrafigyelés
+  setTimeout(() => {
+    const toggleLink = document.getElementById('toggle-register');
+    if (toggleLink) {
+      toggleLink.addEventListener('click', function (e) {
+        e.preventDefault();
+        isRegistering = !isRegistering;
+        switchAuthMode();
+      });
+    }
+  }, 0);
+}
+
+window.addEventListener('DOMContentLoaded', function () {
+  const loginModal = document.getElementById('login-modal');
+  const logoutButton = document.getElementById('logout-button');
+  const loginButton = document.getElementById('login-button');
+  const menuButton = document.getElementById('menu-button'); // Menü gomb
+  const menuModule = document.getElementById('menu-module'); // Menü modul
+  const closeLoginButton = document.getElementById('close-login');
+
+  // 🔁 Állapotfigyelés: be van-e jelentkezve valaki
+  firebase.auth().onAuthStateChanged(function(user) {
+      const adminLink = document.getElementById('admin-link');
+
+      if (user) {
+          if (logoutButton) logoutButton.style.display = 'inline-block';
+          if (menuButton) menuButton.style.display = 'inline-block';
+          if (loginButton) loginButton.style.display = 'none';
+
+          const userRef = firebase.database().ref('users/' + user.uid);
+          userRef.once('value').then(snapshot => {
+              const userData = snapshot.val();
+              if (userData) {
+                  loadUserData(userData, user.uid);
+
+                  if (adminLink) {
+                      if (userData.role === 'admin') {
+                          adminLink.style.display = 'block';
+                      } else {
+                          adminLink.style.display = 'none';
+                      }
+                  }
+              }
+          }).catch(error => {
+              console.error("⚠️ Hiba a felhasználói adatok betöltésekor:", error);
+          });
+      } else {
+          if (logoutButton) logoutButton.style.display = 'none';
+          if (menuButton) menuButton.style.display = 'none';
+          if (loginButton) loginButton.style.display = 'inline-block';
+      }
+  });
+
+  if (logoutButton) {
+      logoutButton.addEventListener('click', function () {
+          firebase.auth().signOut()
+              .then(() => {
+                  alert("Sikeres kijelentkezés!");
+                  if (loginModal) loginModal.style.display = 'none';
+                  document.getElementById('start-screen').style.display = 'flex';
+              })
+              .catch((error) => {
+                  alert("Hiba történt kijelentkezéskor: " + error.message);
+              });
+      });
+  }
+
+  if (menuButton) {
+      menuButton.addEventListener('click', openMenu);
+  }
+
+  if (closeLoginButton) {
+      closeLoginButton.addEventListener('click', function () {
+          if (loginModal) loginModal.style.display = 'none';
+          document.getElementById('start-screen').style.display = 'flex';
+      });
+  }
+
+  function openMenu() {
+      if (menuModule) {
+          menuModule.style.display = (menuModule.style.display === 'none' || menuModule.style.display === '') ? 'block' : 'none';
+      } else {
+          console.error("⚠️ A 'menu-module' elem nem található!");
+      }
+  }
+
+  function loadUserData(userData, userId) {
+      if (!menuModule) return;
+
+      let userInfoHTML = `
+          <ul>
+              <li><strong>Név:</strong> ${userData.name || "N/A"}</li>
+              <li><strong>Email:</strong> ${userData.email || "N/A"}</li>
+              <li><strong>Szerepkör:</strong> ${userData.role || "N/A"}</li>
+          </ul>
+          <h3>Rekordjaid:</h3>
+          <ul id="record-list">
+              <li>Betöltés...</li>
+          </ul>
+      `;
+
+      if (userData.role === "admin") {
+          userInfoHTML += `<h3><a id="admin-link" href="admin.html" style="color: red; font-weight: bold; display: block;">🔹 Admin oldal</a></h3>`;
+      }
+
+      menuModule.innerHTML = userInfoHTML;
+
+      const recordsRef = firebase.database().ref('records/' + userId);
+      recordsRef.once('value').then(snapshot => {
+          const records = snapshot.val();
+          let recordListHTML = "";
+
+          if (records) {
+              recordListHTML = Object.values(records).map(record => 
+                  `<li><strong>Pontszám:</strong> ${record.score ?? "N/A"}, 
+                  <small>${record.timestamp ? new Date(record.timestamp).toLocaleString() : "N/A"}</small></li>`
+              ).join('');
+          } else {
+              recordListHTML = "<li>Nincsenek rekordok.</li>";
+          }
+
+          const recordList = document.getElementById('record-list');
+          if (recordList) {
+              recordList.innerHTML = recordListHTML;
+          }
+      }).catch(error => {
+          console.error("⚠️ Hiba a rekordok betöltésekor:", error);
+          const recordList = document.getElementById('record-list');
+          if (recordList) {
+              recordList.innerHTML = "<li>Hiba történt a betöltéskor.</li>";
+          }
+      });
+  }
+});
+
+
+// Firebase Login
+function loginOrRegister() {
+  const nameField = document.getElementById('register-name'); // Ez csak regisztrációnál kell
+  const email = document.getElementById('user-email').value;
+  const password = document.getElementById('user-password').value;
+
+  // 🔹 Ellenőrizzük, hogy regisztráció vagy bejelentkezés történik
+  const isRegistering = nameField && nameField.value.trim() !== '';
+
+  if (isRegistering) {
+    // ✅ Regisztráció
+    firebase.auth().createUserWithEmailAndPassword(email, password)
+        .then((userCredential) => {
+            const user = userCredential.user;
+            return firebase.database().ref('users/' + user.uid).set({
+                name: nameField.value,
+                email: email,
+                role: "user"  // 🔹 Alapértelmezett szerepkör "user"
+            });
+        })
+        .then(() => {
+            document.getElementById('login-modal').style.display = 'none';
+            document.getElementById('start-screen').style.display = 'flex';
+            showAuthMessage("Sikeres regisztráció!", "green");
+        })
+        .catch((error) => {
+            showAuthMessage("Hiba: " + error.message, "red");
+        });
+  } else {
+      // ✅ Bejelentkezés
+      firebase.auth().signInWithEmailAndPassword(email, password)
+          .then(() => {
+              document.getElementById('login-modal').style.display = 'none';
+              document.getElementById('start-screen').style.display = 'flex';
+              showAuthMessage("✅ Sikeres bejelentkezés!", "green");
+          })
+          .catch((error) => {
+              showAuthMessage("❌ Sikertelen bejelentkezés: " + error.message, "red");
+          });
+  }
+}
+
+  
+function extraFunction() {
     const loginModal = document.getElementById('login-modal');
     if (loginModal) {
       loginModal.style.display = 'flex';
@@ -194,502 +391,57 @@ document.addEventListener('DOMContentLoaded', function() {
     isRegistering = false;
     switchAuthMode();
   }
-
-  // A második funkció (extraFunction2)
-  function extraFunction2() {
-    const menuModal = document.getElementById("menu-modal");
-    const userInfo = document.getElementById("user-info");
-
-    if (menuModal) {
-        menuModal.style.display = "block";  // vagy "flex", ha CSS flexboxot használsz
-    }
-
-    if (userInfo) {
-        userInfo.style.display = "block";
-    }
-
-    isRegistering = true;
-    switchAuthMode();
-}
-
-
-  // Az autentikációs mód váltása
-  function switchAuthMode() {
-    const title = document.getElementById('modal-title');
-    const nameField = document.getElementById('register-name');
-    const button = document.getElementById('login-button');
-    const toggleText = document.getElementById('toggle-text');
-    const loggedInSection = document.getElementById('logged-in-section');
-    const authSection = document.getElementById('auth-section');
-    const loginToggle = document.getElementById('login-toggle');
-    const logoutButton = document.getElementById('logout-button');
-    const gameContainer = document.getElementById("game-container");
   
-    // Firebase auth státusz változása
-    firebase.auth().onAuthStateChanged(user => {
-      if (user) {
-        if (authSection && loggedInSection) {
-          authSection.style.display = 'none';
-          loggedInSection.style.display = 'block';
-        }
-  
-        document.getElementById('user-email').textContent = user.email;
-        document.getElementById('user-name').textContent = user.displayName || 'Név nem elérhető';
-  
-        firebase.database().ref('users/' + user.uid).once('value').then(snapshot => {
-          const userData = snapshot.val();
-          const userRole = userData ? userData.role : 'user';
-          document.getElementById('user-role').textContent = userRole;
-  
-          const adminLinkContainer = document.getElementById('admin-link-container');
-          if (userRole === 'admin') {
-            adminLinkContainer.innerHTML = '';
-            let adminLink = document.createElement('a');
-            adminLink.href = 'admin.html';
-            adminLink.style.color = 'blue';
-            adminLink.style.fontWeight = 'bold';
-            adminLink.textContent = 'Admin Panel';
-            adminLinkContainer.appendChild(adminLink);
-          } else {
-            adminLinkContainer.innerHTML = '';
-          }
+  window.addEventListener('DOMContentLoaded', function() {
+    // Login modal bezárása, csak ha az elem létezik
+    const closeLogin = document.getElementById('close-login');
+    if (closeLogin) {
+        closeLogin.addEventListener('click', function() {
+            document.getElementById('login-modal').style.display = 'none';
+            document.getElementById('start-screen').style.display = 'flex';
         });
-  
-        if (loginToggle) loginToggle.style.display = 'none';
-        if (logoutButton) logoutButton.style.display = 'inline-block';
-  
-        // Bejelentkezett állapot esetén háttér beállítása
-        gameContainer.style.background = "url('szisza\public\background.jpeg') no-repeat center center/cover";
-      } else {
-        if (loggedInSection && authSection) {
-          loggedInSection.style.display = 'none';
-          authSection.style.display = 'block';
-        }
-  
-        if (isRegistering) {
-          title.textContent = "Regisztráció";
-          nameField.style.display = "block";
-          button.textContent = "Regisztrálok";
-          toggleText.innerHTML = `Van már fiókod? <a href="#" id="toggle-register">Bejelentkezés</a>`;
-        } else {
-          title.textContent = "Bejelentkezés";
-          nameField.style.display = "none";
-          button.textContent = "Bejelentkezés";
-          toggleText.innerHTML = `Még nincs fiókod? <a href="#" id="toggle-register">Regisztráció</a>`;
-        }
-  
-        if (logoutButton) logoutButton.style.display = 'none';
-        const adminLinkContainer = document.getElementById('admin-link-container');
-        adminLinkContainer.innerHTML = '';
-  
-        // Ha nincs bejelentkezve, a háttér visszaállítása
-        gameContainer.style.background = "none";
-      }
-  
-      setTimeout(() => {
-        const toggleLink = document.getElementById('toggle-register');
-        if (toggleLink) {
-          toggleLink.addEventListener('click', function (e) {
-            e.preventDefault();
-            isRegistering = !isRegistering;
-            switchAuthMode();
-          });
-        }
-      }, 0);
-    });
-  }
-  
-  // Különböző gombok eseménykezelése
-  document.getElementById('login-toggle').addEventListener('click', extraFunction);
-  document.getElementById('menu').addEventListener('click', extraFunction2);
-});  
-
-
-// Kijelentkezés
-function logout() {
-  firebase.auth().signOut().then(() => {
-    showAuthMessage("Sikeres kijelentkezés!", "green");
-    // Újra megjeleníti az autentikációs szakaszt
-    document.getElementById('auth-section').style.display = 'block';
-    document.getElementById('logged-in-section').style.display = 'none';
-  }).catch((error) => {
-    showAuthMessage("Hiba a kijelentkezéskor: " + error.message, "red");
-  });
-}
-
-
-// Kijelentkezés
-function logout() {
-  firebase.auth().signOut().then(() => {
-    showAuthMessage("Sikeres kijelentkezés!", "green");
-    // Újra megjeleníti az autentikációs szakaszt
-    document.getElementById('auth-section').style.display = 'block';
-    document.getElementById('logged-in-section').style.display = 'none';
-  }).catch((error) => {
-    showAuthMessage("Hiba a kijelentkezéskor: " + error.message, "red");
-  });
-}
-
-firebase.auth().onAuthStateChanged(function (user) {
-  const userInfoSection = document.getElementById('user-info');
-  const loginToggle = document.getElementById('login-toggle');
-  const logoutButton = document.getElementById('logout-button');
-  const adminLinkContainer = document.getElementById('admin-link-container');
-  const authMessage = document.getElementById('auth-message');
-  const loginModal = document.getElementById('login-modal');
-  const startScreen = document.getElementById('start-screen');
-
-  // Biztosítsuk, hogy az elemek léteznek
-  if (loginToggle) loginToggle.style.display = 'inline-block';
-  if (logoutButton) logoutButton.style.display = 'none';
-  if (adminLinkContainer) adminLinkContainer.innerHTML = '';
-  if (userInfoSection) userInfoSection.style.display = 'none';
-
-  if (user) {
-    if (loginToggle) loginToggle.style.display = 'none';
-    if (logoutButton) logoutButton.style.display = 'inline-block';
-
-    const userRef = firebase.database().ref('users/' + user.uid);
-    userRef.once('value', function (snapshot) {
-      const userData = snapshot.val();
-      if (userData) {
-        if (userInfoSection) {
-          userInfoSection.style.display = 'block';
-          userInfoSection.innerHTML = `
-            <h3>Bejelentkezve</h3>
-            <p>Email: ${user.email}</p>
-            <p>Név: ${userData.name || 'N/A'}</p>
-            <p>Szerepkör: ${userData.role || 'N/A'}</p>
-          `;
-        }
-
-        if (userData.role === 'admin' && adminLinkContainer) {
-          if (!adminLinkContainer.querySelector('a')) {
-            let adminLink = document.createElement('a');
-            adminLink.href = 'admin.html';
-            adminLink.style.color = 'blue';
-            adminLink.style.fontWeight = 'bold';
-            adminLink.textContent = 'Admin Panel';
-            adminLinkContainer.appendChild(adminLink);
-          }
-        }
-      } else {
-        console.error("Felhasználói adatok nem találhatók!");
-      }
-    });
-
-    setTimeout(() => {
-      if (loginModal) loginModal.style.display = 'none';
-    }, 100);
-    
-    if (startScreen) startScreen.style.display = 'flex';
-
-  } else {
-    console.warn("Nincs bejelentkezett felhasználó.");
-  }
-});
-
-
-
-
-// Auth hiba üzenet megjelenítése
-function showAuthMessage(message, color) {
-  const authMessage = document.getElementById('auth-message');
-  authMessage.style.display = 'block';
-  authMessage.style.color = color;
-  authMessage.textContent = message;
-}
-
-
-// Kijelentkezés
-function logout() {
-  firebase.auth().signOut().then(() => {
-    showAuthMessage("Sikeres kijelentkezés!", "green");
-  }).catch((error) => {
-    showAuthMessage("Hiba a kijelentkezéskor: " + error.message, "red");
-  });
-}
-
-// Üzenet megjelenítése
-function showAuthMessage(message, color = "red") {
-  let msg = document.getElementById('auth-message');
-  if (!msg) {
-    msg = document.createElement('p');
-    msg.id = 'auth-message';
-    msg.style.marginTop = "10px";
-    msg.style.textAlign = "center";
-    document.body.appendChild(msg);
-  }
-  msg.textContent = message;
-  msg.style.color = color;
-  msg.style.display = 'block';
-  setTimeout(() => { msg.textContent = ""; }, 5000);
-}
-
-
-// Regisztráció vagy bejelentkezés
-function loginOrRegister() {
-  const email = document.getElementById('user-email').value;
-  const password = document.getElementById('user-password').value;
-  const name = document.getElementById('register-name') ? document.getElementById('register-name').value : '';
-
-  if (document.getElementById('register-name') && document.getElementById('register-name').style.display !== 'none') {
-    // Regisztráció
-    if (!name) {
-      showAuthMessage("A név mező kitöltése kötelező!", "red");
-      return;
-    }
-
-    firebase.auth().createUserWithEmailAndPassword(email, password)
-      .then((userCredential) => {
-        const user = userCredential.user;
-        firebase.database().ref('users/' + user.uid).set({
-          name: name,
-          email: email,
-          role: 'user'
-        });
-        showAuthMessage("Sikeres regisztráció!", "green");
-        updateUI(user);  // UI frissítése
-      })
-      .catch((error) => {
-        showAuthMessage("Hiba: " + error.message, "red");
-      });
-  } else {
-    // Bejelentkezés
-    firebase.auth().signInWithEmailAndPassword(email, password)
-      .then(() => {
-        showAuthMessage("Sikeres bejelentkezés!", "green");
-        updateUI(firebase.auth().currentUser);  // UI frissítése
-      })
-      .catch((error) => {
-        showAuthMessage("Sikertelen bejelentkezés. Kérlek, próbáld újra!", "red");
-      });
-  }
-}
-
-// Regisztráció funkció
-function registerUser() {
-  const email = document.getElementById('user-email').value;
-  const password = document.getElementById('user-password').value;
-  const name = document.getElementById('register-name').value;
-
-  firebase.auth().createUserWithEmailAndPassword(email, password)
-    .then((userCredential) => {
-      // Felhasználó sikeres regisztrálása
-      const user = userCredential.user;
-
-      // Felhasználói adatok mentése a Firebase adatbázisba
-      firebase.database().ref('users/' + user.uid).set({
-        name: name,
-        email: email,
-        role: 'user' // alapértelmezett szerepkör
-      }).then(() => {
-        showAuthMessage("Sikeres regisztráció!", "green");
-        // Lehetőséged van további UI frissítésekre is, pl. átirányítani a bejelentkezett felületre.
-      }).catch((error) => {
-        showAuthMessage("Hiba történt az adatbázis frissítésekor: " + error.message, "red");
-      });
-    })
-    .catch((error) => {
-      showAuthMessage("Hiba történt a regisztráció során: " + error.message, "red");
-    });
-}
-
-
-// Frissíti a UI-t bejelentkezés után
-function updateUI(user) {
-  const loginToggle = document.getElementById('login-toggle');
-  const logoutButton = document.getElementById('logout-button');
-  const userInfoSection = document.getElementById('user-info');
-  const menu = document.getElementById('menu');
-  const profileImage = document.getElementById('profile-image');
-  const userEmail = document.getElementById('user-email');
-  const userName = document.getElementById('user-name');
-  const userRole = document.getElementById('user-role');
-
-  if (user) {
-    if (loginToggle) loginToggle.style.display = 'none';
-    if (logoutButton) logoutButton.style.display = 'inline-block';
-    
-    // A menu modul megjelenítése bejelentkezéskor
-    if (menu) menu.style.display = 'block';  // Menu megjelenítése
-
-    // Lekérjük a felhasználói adatokat a Firebase adatbázisból
-    const userRef = firebase.database().ref('users/' + user.uid);
-    userRef.once('value', function(snapshot) {
-      const userData = snapshot.val();
-      if (userData) {
-        // Felhasználói adatok beállítása
-        userEmail.textContent = `Email: ${userData.email}`;
-        userName.textContent = `Név: ${userData.name}`;
-        userRole.textContent = `Szerepkör: ${userData.role}`;
-      }
-    });
-
-    // Kép kattintásra megjelenítjük a felhasználói információkat
-    if (profileImage) {
-      profileImage.addEventListener('click', function() {
-        if (userInfoSection) {
-          userInfoSection.style.display = 'block';  // Információk megjelenítése
-        }
-      });
-    }
-
-  } else {
-    if (loginToggle) loginToggle.style.display = 'inline-block';
-    if (logoutButton) logoutButton.style.display = 'none';
-    if (userInfoSection) userInfoSection.innerHTML = '';  // Kiürítjük, ha nincs bejelentkezett felhasználó
-    
-    // A menu modul elrejtése kijelentkezéskor
-    if (menu) menu.style.display = 'none';  // Menu elrejtése
-  }
-}
-
-
-// Külön függvény az elem adatainak frissítéséhez
-function updateElementData() {
-  firebase.database().ref('path/to/data').on('value', (snapshot) => {
-    const data = snapshot.val();  // Az adatokat itt kapjuk meg
-
-    // Ellenőrizd, hogy az elem létezik a DOM-ban
-    const element = document.getElementById('elementId');
-    if (element) {
-      element.textContent = data.name;  // Frissítjük a textContent-t
     } else {
-      console.error('Elem nem található: elementId');
+        console.warn("❌ close-login elem nem található!");
     }
-  });
-}
 
-// Indítsd el a DOMContentLoaded eseményt
-window.addEventListener("DOMContentLoaded", function() {
-  updateElementData(); // Az elem frissítése
-});
-
-// Show authentication message function (for displaying messages)
-function showAuthMessage(message, color) {
-  const messageContainer = document.getElementById('auth-message');
-  if (messageContainer) {
-    messageContainer.innerHTML = message;
-    messageContainer.style.color = color;
-    messageContainer.style.display = 'block';
-    setTimeout(() => {
-      messageContainer.style.display = 'none';
-    }, 3000);
-  }
-}
-
-
-// Üzenet megjelenítése
-function showAuthMessage(message, color) {
-  const authMessageElement = document.getElementById('auth-message');
-  authMessageElement.textContent = message;
-  authMessageElement.style.color = color;
-}
-
-
-// Ezután rendezd el az eseményeket
-window.addEventListener('DOMContentLoaded', function() {
-  // Login modal bezárása
-  const closeLoginBtn = document.getElementById('close-login');
-  if (closeLoginBtn) {
-    closeLoginBtn.addEventListener('click', function() {
-      document.getElementById('login-modal').style.display = 'none';
-      document.getElementById('start-screen').style.display = 'flex';
-    });
-  }
-
-  // Regisztrációs modal bezárása
-  const closeRegisterBtn = document.getElementById('close-register');
-  if (closeRegisterBtn) {
-    closeRegisterBtn.addEventListener('click', function() {
-      document.getElementById('register-modal').style.display = 'none';
-      document.getElementById('start-screen').style.display = 'flex';
-    });
-  }
-
-  // Eseménykezelők a Firebase be- és regisztrációhoz
-  const registerButton = document.getElementById('register-button');
-  const loginButton = document.getElementById('login-button');
-  
-  if (registerButton) {
-    registerButton.addEventListener('click', loginOrRegister);  // Regisztráció
-  }
-  
-  if (loginButton) {
-    loginButton.addEventListener('click', loginOrRegister);  // Bejelentkezés
-  }
-
-  // Ha a login modalon belül van egy "Regisztráció" gomb (pl. id="open-register"), akkor annak eseménykezelője:
-  const openRegisterBtn = document.getElementById('open-register');
-  if (openRegisterBtn) {
-    openRegisterBtn.addEventListener('click', function() {
-      document.getElementById('login-modal').style.display = 'none';
-      document.getElementById('register-modal').style.display = 'flex';
-    });
-  }
-
-  // Hozzászólások betöltése
-  loadComments();
-});
-
-// Regisztrációs és bejelentkezési logika
-function loginOrRegister() {
-  const email = document.getElementById('user-email').value;
-  const password = document.getElementById('user-password').value;
-  const name = document.getElementById('register-name').value;  // Regisztráció esetén
-
-  if (document.getElementById('register-name').style.display !== 'none') {
-    // Regisztráció
-    firebase.auth().createUserWithEmailAndPassword(email, password)
-      .then((userCredential) => {
-        const user = userCredential.user;
-
-        // Felhasználói adatok mentése Firebase Realtime Database-be
-        firebase.database().ref('users/' + user.uid).set({
-          name: name,
-          email: email,
-          role: 'user'  // Alapértelmezett szerepkör
+    // Regisztrációs modal bezárása, csak ha az elem létezik
+    const closeRegister = document.getElementById('close-register');
+    if (closeRegister) {
+        closeRegister.addEventListener('click', function() {
+            document.getElementById('register-modal').style.display = 'none';
+            document.getElementById('start-screen').style.display = 'flex';
         });
+    } else {
+        console.warn("❌ close-register elem nem található!");
+    }
 
-        showAuthMessage("Sikeres regisztráció!", "green");
-        // Regisztráció után bejelentkeztethetjük a felhasználót
-        firebase.auth().signInWithEmailAndPassword(email, password);
-      })
-      .catch((error) => {
-        const errorMessage = error.message;
-        showAuthMessage(errorMessage, "red");
-      });
-  } else {
-    // Bejelentkezés
-    firebase.auth().signInWithEmailAndPassword(email, password)
-      .then((userCredential) => {
-        const user = userCredential.user;
-        showAuthMessage("Sikeres bejelentkezés!", "green");
-        loadUserData(user.uid); // Felhasználói adatok betöltése
-      })
-      .catch((error) => {
-        const errorMessage = error.message;
-        showAuthMessage(errorMessage, "red");
-      });
+    // Hozzászólások betöltése
+    loadComments();
+});
+
+//COMMENTS
+function reportComment(commentId, commentData) {
+  const reportReason = prompt("Miért szeretnéd jelenteni ezt a kommentet?");
+
+  if (!reportReason) {
+    alert("A jelentéshez meg kell adnod egy okot.");
+    return;
   }
-}
 
-// Felhasználói adatok betöltése
-function loadUserData(uid) {
-  const userRef = firebase.database().ref('users/' + uid);
-  userRef.once('value', function(snapshot) {
-    const userData = snapshot.val();
-    console.log(userData);  // A lekért adatokat a konzolra kiírjuk
-    // Felhasználói adatok megjelenítése
-    document.getElementById('user-info').innerHTML = `
-      <p>Bejelentkezve: ${userData.name}</p>
-      <p>Email: ${userData.email}</p>
-      <p>Szerepkör: ${userData.role}</p>
-    `;
-  });
-}
+  const report = {
+    reportReason: reportReason,
+    timestamp: Date.now()
+  };
 
+  firebase.database().ref(`comments/${commentId}/reports`).push(report)
+    .then(() => {
+      alert("Köszönjük, a jelentésedet rögzítettük!");
+    })
+    .catch(error => {
+      console.error("Hiba a jelentés mentésekor:", error);
+      alert("Hiba történt. Kérlek, próbáld újra.");
+    });
+}
 function postComment() {
   const user = firebase.auth().currentUser;
 
@@ -713,7 +465,7 @@ function postComment() {
     uid: user.uid // opcionálisan mentjük a felhasználó azonosítóját
   };
 
-  firebase.database().ref('comments').pFush(newComment)
+  firebase.database().ref('comments').push(newComment)
     .then(() => {
       document.getElementById('comment-input').value = '';
       loadComments();
@@ -756,5 +508,73 @@ function showAuthMessage(message, color = "red") {
     setTimeout(() => {
       msgElem.textContent = "";
     }, 5000);
-  } 
+  }
+  //RECORD MENTÉS
+  function saveRecord(score) {
+    const user = firebase.auth().currentUser;
+    if (user) {
+        const userRef = firebase.database().ref('users/' + user.uid);
+        userRef.once('value').then(snapshot => {
+            const userData = snapshot.val();
+            if (userData) {
+                const recordData = {
+                    score: score,
+                    timestamp: Date.now(),
+                    email: userData.email || "N/A",
+                    name: userData.name || "N/A"
+                };
+
+                firebase.database().ref('records/' + user.uid).push(recordData)
+                    .then(() => {
+                        console.log("✅ Rekord sikeresen mentve!");
+                    })
+                    .catch(error => {
+                        console.error("⚠️ Hiba történt a rekord mentésekor:", error);
+                    });
+            }
+        }).catch(error => {
+            console.error("⚠️ Hiba a felhasználói adatok lekérésekor:", error);
+        });
+    } else {
+        console.warn("⚠️ Nincs bejelentkezett felhasználó, nem lehet menteni a rekordot.");
+    }
+}
+
+  
+  function getGameRecord() {
+    const user = firebase.auth().currentUser;
+  
+    if (user) {
+      const userId = user.uid;
+      const recordsRef = firebase.database().ref('records/' + userId);
+      
+      recordsRef.once('value').then(function(snapshot) {
+        const recordData = snapshot.val();
+        if (recordData) {
+          console.log('A felhasználó rekordja: ', recordData);
+        } else {
+          console.log('Nincs rekord a felhasználónak!');
+        }
+      }).catch(function(error) {
+        console.error('Hiba a rekord lekérésekor: ', error);
+      });
+    }
+  }
+  function openMenu() {
+    const menuModule = document.getElementById('menu-module');
+    if (menuModule) {
+        console.log("openMenu() meghívva!"); // ✅ Ellenőrzés
+        if (menuModule.style.display === 'none' || menuModule.style.display === '') {
+            menuModule.style.display = 'block';
+            console.log("Menü megnyitva!"); // ✅ Ellenőrzés
+        } else {
+            menuModule.style.display = 'none';
+            console.log("Menü bezárva!"); // ✅ Ellenőrzés
+        }
+    } else {
+        console.error("A 'menu-module' elem nem található!");
+    }
+}
+
+
 }
