@@ -4,12 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Fingi</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css" />
 </head>
 
 <body id="game-container">
-  <div id="elementId"></div>
-  
   <!-- 🔽 START SCREEN -->
   <div id="start-screen">
     <h1 class="game-title">
@@ -28,10 +26,10 @@
       <textarea id="comment-input" placeholder="Írd be a hozzászólásod..." style="width: 100%; height: 80px; margin-bottom: 10px;"></textarea><br>
       <input type="text" id="comment-name" placeholder="Neved" style="width: 100%; margin-bottom: 10px;">
       <button onclick="postComment()" style="width: 100%; padding: 10px; background-color: #345; color: white; border: none; border-radius: 5px;">Küldés</button>
+      
     </div>
   </div>
 
-  <!-- 🔽 LOGIN/REGISTRATION MODAL -->
   <div id="login-modal" style="display: none;">
     <div class="login-container">
       <h2 id="modal-title">Bejelentkezés</h2>
@@ -40,161 +38,139 @@
       <input type="email" id="user-email" placeholder="Email" />
       <input type="password" id="user-password" placeholder="Jelszó" />
 
-      <button id="login-button" onclick="login()">Bejelentkezés</button>
-      <button id="register-button" onclick="register()" style="display: none;">Regisztráció</button>
-
+      <button id="login-button">Bejelentkezés</button>
       <p id="toggle-text" style="margin-top: 10px;">
         Még nincs fiókod? <a href="#" id="toggle-register">Regisztráció</a>
+        <button id="close-register">Bezár</button>
       </p>
 
-      <button id="close-login" style="margin-top: 10px;" onclick="closeModal()">Bezár</button>
+      <button id="close-login" style="margin-top: 10px;">Bezár</button>
       <div id="menu-auth-buttons" style="text-align: center; margin-top: 15px;">
-        <button id="logout-button" style="display: none;" onclick="logout()">Kijelentkezés</button>
+        <button id="logout-button" style="display: none;">Kijelentkezés</button>
       </div>
+      <p id="auth-message" style="margin-top: 10px; color: red;"></p>
+
     </div>
   </div>
 
-  <!-- 🔽 MENU MODAL -->
-  <div id="menu-modal" class="modal">
-    <div class="modal-content">
-      <h2>Menü</h2>
-      <div id="user-info" style="display: none; margin-top: 20px;">
-        <p id="user-name"></p>
-        <p id="user-role"></p>
-        <p id="user-email"></p>
-        <a  href="/admin.html">Admin Panel</a>
-      </div>
-      <p id="auth-message" style="margin-top: 10px; color: red;"></p>
+  <div id="game-screen" style="display: none;">
+    <canvas id="gameCanvas" width="800" height="900"></canvas>
+
+    <div id="game-over-screen" class="game-over-screen" style="display: flex;">
+      <h1 class="game-over-title">Game Over</h1>
+      <h2 id="final-score">Your Score: 0</h2>
+      <div class="play-again-button" onclick="startGame()"></div>
+      <div class="quit-button" onclick="quitGame()"></div>
     </div>
   </div>
+
+  <button id="menu-button" style="display: none;">Menü</button>
+
+  <div id="menu-module" style="display: none; background: white; padding: 10px; border: 1px solid black;">
+    <h2>Felhasználói információk</h2>
+    <ul>
+        <li><strong>Név:</strong> Betöltés...</li>
+        <li><strong>Email:</strong> Betöltés...</li>
+        <li><strong>Szerepkör:</strong> Betöltés...</li>
+    </ul>
+    <h3>Rekordjaid:</h3>
+    <ul id="record-list">
+        <li>Betöltés...</li>
+    </ul>
+    
+    <!-- Admin link megjelenítése, ha a felhasználó admin -->
+    <div id="admin-link" style="display: none;">
+        <a href="admin.html">Admin oldal</a>
+    </div>
+</div>
 
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
 
   <script>
-    const firebaseConfig = {
-      apiKey: "AIzaSyA6p7PMWu6Au85AQXZ0l5aleAWBR2uUBIg",
-      authDomain: "vizsga-55ea5.firebaseapp.com",
-      databaseURL: "https://vizsga-55ea5-default-rtdb.europe-west1.firebasedatabase.app",
-      projectId: "vizsga-55ea5",
-      storageBucket: "vizsga-55ea5.appspot.com",
-      messagingSenderId: "457886173828",
-      appId: "1:457886173828:web:145dbde8e65d08344a10d1"
-    };
+const firebaseConfig = {
+    apiKey: "AIzaSyA6p7PMWu6Au85AQXZ0l5aleAWBR2uUBIg",
+    authDomain: "vizsga-55ea5.firebaseapp.com",
+    databaseURL: "https://vizsga-55ea5-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "vizsga-55ea5",
+    storageBucket: "vizsga-55ea5.appspot.com",
+    messagingSenderId: "457886173828",
+    appId: "1:457886173828:web:145dbde8e65d08344a10d1"
+  };
 
-    firebase.initializeApp(firebaseConfig);
+  firebase.initializeApp(firebaseConfig);
 
-    // 🔁 Auth state figyelés
-    firebase.auth().onAuthStateChanged(function(user) {
-      const logoutButton = document.getElementById('logout-button');
-      const commentNameInput = document.getElementById('comment-name');
-      const adminLinkContainer = document.getElementById('admin-link-container');
+  firebase.auth().onAuthStateChanged(function(user) {
+    const loginToggle = document.getElementById('login-toggle');
+    const logoutButton = document.getElementById('logout-button');
+  
+    if (user) {
+      if (loginToggle) loginToggle.style.display = 'none';
+      if (logoutButton) logoutButton.style.display = 'inline-block';
+      showAuthMessage("Sikeres bejelentkezés!", "green");
+    } else {
+      if (loginToggle) loginToggle.style.display = 'inline-block';
+      if (logoutButton) logoutButton.style.display = 'none';
+    }
+  });
 
-      if (user) {
-        // Bejelentkezett állapot
-        showAuthMessage("Sikeres bejelentkezés!", "green");
-
-        const userRef = firebase.database().ref('users/' + user.uid);
-        userRef.once('value', function(snapshot) {
-          const userData = snapshot.val();
-          if (userData) {
-            commentNameInput.value = userData.name;
-            document.getElementById('user-name').textContent = "Név: " + userData.name;
-            document.getElementById('user-role').textContent = "Szerepkör: " + userData.role;
-            document.getElementById('user-email').textContent = "Email: " + user.email;
-          }
-
-          if (userData && userData.role === 'admin') {
-            let adminLink = document.createElement('a');
-            adminLink.href = 'admin.html';
-            adminLink.style.color = 'blue';
-            adminLink.style.fontWeight = 'bold';
-            adminLink.textContent = 'Admin Panel';
-            adminLinkContainer.appendChild(adminLink);
-          } else {
-            adminLinkContainer.innerHTML = "";
-          }
-        });
-
-        // Bejelentkezés után a login modal elrejtése
+  document.addEventListener('click', function (event) {
+    if (event.target && event.target.id === 'logout-button') {
+      firebase.auth().signOut().then(() => {
         document.getElementById('login-modal').style.display = 'none';
         document.getElementById('start-screen').style.display = 'flex';
-      } else {
-        // Nincs bejelentkezve
-        document.getElementById('login-modal').style.display = 'block';
-        document.getElementById('start-screen').style.display = 'none';
-      }
-    });
-
-    // Bejelentkezés funkció
-    function login() {
-      const email = document.getElementById('user-email').value;
-      const password = document.getElementById('user-password').value;
-
-      firebase.auth().signInWithEmailAndPassword(email, password)
-        .then(() => {
-          document.getElementById('login-modal').style.display = 'none';
-        })
-        .catch((error) => {
-          showAuthMessage("Hiba a bejelentkezéskor: " + error.message, "red");
-        });
-    }
-
-    // Regisztráció funkció
-    function register() {
-      const name = document.getElementById('register-name').value;
-      const email = document.getElementById('user-email').value;
-      const password = document.getElementById('user-password').value;
-
-      firebase.auth().createUserWithEmailAndPassword(email, password)
-        .then((userCredential) => {
-          const user = userCredential.user;
-          // Új felhasználó adatainak mentése a Firebase adatbázisba
-          firebase.database().ref('users/' + user.uid).set({
-            name: name,
-            email: email,
-            role: "user" // Alapértelmezett szerepkör
-          });
-          document.getElementById('login-modal').style.display = 'none';
-        })
-        .catch((error) => {
-          showAuthMessage("Hiba a regisztrációkor: " + error.message, "red");
-        });
-    }
-
-    // Kijelentkezés funkció
-    function logout() {
-      firebase.auth().signOut().then(() => {
         showAuthMessage("Sikeres kijelentkezés!", "green");
       }).catch((error) => {
         showAuthMessage("Hiba történt kijelentkezéskor. Kérlek, próbáld újra!", "red");
       });
     }
+  });
 
-    // Üzenet megjelenítése
-    function showAuthMessage(message, color = "red") {
-      let msg = document.getElementById('auth-message');
-      if (!msg) {
-        msg = document.createElement('p');
-        msg.id = 'auth-message';
-        msg.style.marginTop = "10px";
-        msg.style.textAlign = "center";
-        document.body.appendChild(msg);
-      }
-      msg.textContent = message;
-      msg.style.color = color;
-      msg.style.display = 'block';
-      setTimeout(() => { msg.textContent = ""; }, 5000);
+  function showAuthMessage(message, color = "red") {
+    let msg = document.getElementById('auth-message');
+    if (!msg) {
+      msg = document.createElement('p');
+      msg.id = 'auth-message';
+      msg.style.marginTop = "10px";
+      msg.style.textAlign = "center";
+      document.body.appendChild(msg);
     }
+    msg.textContent = message;
+    msg.style.color = color;
+    msg.style.display = 'block';
+    setTimeout(() => { msg.textContent = ""; }, 5000);
+  }
 
-    // Modal bezárása
-    function closeModal() {
-      document.getElementById('login-modal').style.display = 'none';
+  function saveGameRecord(score) {
+    const user = firebase.auth().currentUser;
+    if (user) {
+        const userId = user.uid;
+        const userEmail = user.email;
+        const userName = user.displayName || "N/A";  // Ha nincs név beállítva, akkor "N/A"
+
+        const recordsRef = firebase.database().ref('records/' + userId).push(); // Új bejegyzés létrehozása
+        
+        recordsRef.set({
+            name: userName,
+            email: userEmail,
+            score: score,
+            timestamp: firebase.database.ServerValue.TIMESTAMP
+        }).then(() => {
+            console.log('Rekord sikeresen mentve!');
+        }).catch((error) => {
+            console.error('Hiba a rekord mentése közben: ', error);
+        });
+    } else {
+        console.log('Nincs bejelentkezett felhasználó!');
     }
-  </script>
-<script src="script.js"></script>
+}
 
+</script>
 
+  <!-- 🔽 A végén jön a játékscript -->
+  <script src="script.js"></script>
+  
 </body>
+
 </html>
